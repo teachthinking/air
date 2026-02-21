@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>🚁 直升機空戰: 教師中控台</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: "Microsoft JhengHei", sans-serif; display: flex; flex-direction: column; height: 100vh; margin: 0; background: #0d1117; color: #c9d1d9; overflow: hidden; }
+        header { background: #161b22; padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #6f42c1; height: 52px; }
+        .score-board { display: flex; gap: 16px; font-size: 1.4rem; font-weight: bold; background: #0d1117; padding: 5px 18px; border-radius: 6px; border: 1px solid #30363d; }
+        .score-red { color: #ff6b6b; }
+        .score-blue { color: #58a6ff; }
+        .timer { color: #ffa500; font-family: monospace; min-width: 80px; text-align: center; }
+        .game-controls { display: flex; align-items: center; gap: 8px; }
+        .status-text { font-size: 0.85rem; color: #8b949e; background: rgba(255,255,255,0.05); padding: 3px 10px; border-radius: 20px; }
+        button { cursor: pointer; font-family: inherit; font-weight: bold; border: none; border-radius: 5px; padding: 6px 13px; transition: all 0.2s; font-size: 0.85rem; }
+        button:hover { filter: brightness(1.15); transform: translateY(-1px); }
+        button:active { transform: translateY(1px); }
+        .btn-run    { background: #238636; color: white; }
+        .btn-stop   { background: #da3633; color: white; }
+        .btn-file   { background: #1f6feb; color: white; }
+        .btn-warn   { background: #d29922; color: white; }
+        .btn-danger { background: #b91c1c; color: white; }
+        .btn-tool   { background: #21262d; color: #c9d1d9; border: 1px solid #30363d; }
+        .btn-tool:hover { background: #30363d; }
+        .btn-tool.active { background: #d29922; border-color: #e6a817; color: #000; }
+        .btn-eraser { background: #3d1f1f; color: #f87171; border: 1px solid #7f1d1d; }
+        .btn-eraser.active { background: #b91c1c; color: white; }
+
+        /* 地圖工具列 */
+        .map-toolbar { background: #161b22; padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #21262d; gap: 8px; flex-wrap: wrap; }
+        .tool-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .tool-label { color: #8b949e; font-size: 0.85rem; white-space: nowrap; }
+        .alt-selector { display: flex; align-items: center; gap: 4px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; padding: 3px 8px; }
+        .alt-btn { padding: 3px 10px; font-size: 0.8rem; }
+        .alt-btn.active { box-shadow: 0 0 8px currentColor; }
+
+        #main-area { display: flex; flex: 1; overflow: hidden; justify-content: center; align-items: center; background: #0a0e1a; }
+        #game-wrapper { width: 800px; height: 600px; position: relative; border: 2px solid #30363d; border-radius: 4px; overflow: hidden; }
+        #gameCanvas { width: 800px; height: 600px; cursor: crosshair; display: block; }
+        #map-edit-hint { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.75); color: #ffd700; padding: 4px 10px; border-radius: 4px; pointer-events: none; display: none; border: 1px solid #ffd700; font-size: 0.8rem; }
+
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 2000; display: flex; justify-content: center; align-items: center; }
+        .panel { background: #161b22; padding: 28px; border-radius: 10px; text-align: center; border: 1px solid #30363d; width: 440px; color: #c9d1d9; }
+        .panel h2 { margin-top: 0; color: #ffd700; }
+        .panel label { display: block; text-align: left; margin: 10px 0 4px; font-size: 0.9rem; color: #8b949e; }
+        .panel input, .panel select { width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #30363d; background: #0d1117; color: #fff; font-size: 0.95rem; }
+        .panel button { width: 100%; padding: 11px; margin-top: 12px; font-size: 1rem; background: #238636; color: white; }
+        #mapInput { display: none; }
+        footer { font-size: 11px; color: #8b949e; text-align: center; padding: 4px; background: #0d1117; border-top: 1px solid #21262d; }
+    </style>
+</head>
+<body>
+
+<div id="overlay">
+    <div class="panel">
+        <h2>🚁 直升機空戰教師中控台</h2>
+        <label>戰場編號</label>
+        <input type="text" id="roomId" value="101">
+        <label>⏱️ 比賽時間 (秒)</label>
+        <input type="number" id="gameTime" value="180">
+        <label>🗺️ 空域地圖</label>
+        <select id="mapSelect" onchange="checkMapMode()">
+            <option value="empty">空曠空域</option>
+            <option value="city">城市上空</option>
+            <option value="mountain">山岳地帶</option>
+            <option value="custom">✏️ 自訂/編輯模式</option>
+        </select>
+        <div id="map-tools" style="display:none; margin-top:10px; background:#0d1117; padding:10px; border-radius:5px;">
+            <button class="btn-file" onclick="document.getElementById('mapInput').click()" style="width:48%; font-size:0.85rem;">📂 載入地圖</button>
+            <button class="btn-warn" onclick="clearMap()" style="width:48%; font-size:0.85rem;">🗑️ 清空重畫</button>
+            <input type="file" id="mapInput" accept=".json" onchange="loadMapFromFile(this)">
+            <small style="color:#8b949e; display:block; margin-top:6px;">* 選「自訂」後可拖曳繪製障礙物</small>
+        </div>
+        <label>對戰伺服器</label>
+        <input type="text" id="serverUrl" value="https://tank-game-server-2iwf.onrender.com">
+        <button onclick="connectSystem()">🚀 啟動伺服器</button>
+    </div>
+</div>
+
+<header>
+    <div class="score-board">
+        <span class="score-red">RED: <span id="scoreRed">0</span></span>
+        <span style="color:#444">|</span>
+        <span class="timer" id="timerDisplay">00:00</span>
+        <span style="color:#444">|</span>
+        <span class="score-blue">BLUE: <span id="scoreBlue">0</span></span>
+    </div>
+    <div id="controls" class="game-controls">
+        <span id="statusText" class="status-text">未連線</span>
+        <button class="btn-file" onclick="downloadMapConfig()">💾 下載地圖</button>
+        <button class="btn-run" onclick="hostStartGame()">🔔 比賽開始</button>
+        <button class="btn-stop" onclick="hostResetGame()">♻️ 重置</button>
+    </div>
+</header>
+
+<!-- 地圖繪製工具列 (含高度選擇器) -->
+<div class="map-toolbar">
+    <div class="tool-group">
+        <span class="tool-label">✈️ 障礙物：</span>
+        <button class="btn-tool active" onclick="changeTool('random', this)">🎲 隨機</button>
+        <button class="btn-tool" onclick="changeTool('🌲', this)">🌲 低樹</button>
+        <button class="btn-tool" onclick="changeTool('🏢', this)">🏢 中建築</button>
+        <button class="btn-tool" onclick="changeTool('🗼', this)">🗼 高塔</button>
+        <button class="btn-tool" onclick="changeTool('🪨', this)">🪨 山岳</button>
+        <span style="border-left:1px solid #30363d; margin:0 4px; height:20px;"></span>
+        <button class="btn-tool btn-eraser" onclick="changeTool('blank', this)">🧽 橡皮擦</button>
+    </div>
+    <div class="alt-selector">
+        <span class="tool-label">🗂️ 高度：</span>
+        <button class="alt-btn btn-tool" id="altBtn1" onclick="setAltDraw(1, this)" style="color:#4ade80; border-color:#4ade80;">Lv.1 低</button>
+        <button class="alt-btn btn-tool active" id="altBtn2" onclick="setAltDraw(2, this)" style="color:#ffd700; border-color:#ffd700;">Lv.2 中</button>
+        <button class="alt-btn btn-tool" id="altBtn3" onclick="setAltDraw(3, this)" style="color:#ff6b35; border-color:#ff6b35;">Lv.3 高</button>
+    </div>
+    <div class="tool-group">
+        <button class="btn-danger" onclick="clearMap()">💣 清除全圖</button>
+    </div>
+</div>
+
+<div id="main-area">
+    <div id="game-wrapper">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="map-edit-hint">✏️ 編輯模式：按住拖曳繪製障礙物</div>
+    </div>
+</div>
+   <script src="t.engine.min.js"></script>
+
+    <footer>
+        Powered by Google Blockly (Apache 2.0) | Educational platform and extensions © 2026 Justin Chang<br>
+        本平台使用 Google Blockly（Apache License 2.0）開發｜教學平台與延伸功能 保留所有權利｜
+        © 2026 張世杰
+    </footer>
+
+
+</body>
+</html>
