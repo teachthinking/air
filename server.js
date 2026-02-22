@@ -247,13 +247,13 @@ function applyCmd(room, data) {
     } else if (data.action === 'turn') {
         p.targetAngle = (p.targetAngle !== undefined ? p.targetAngle : p.angle) + data.val;
     } else if (data.action === 'climb') {
-        // 爬升：高度+1 (最高3)
+        // 爬升：高度+1 (最高4)
         p.alt = Math.min(ALT_ULTRA, (p.alt || ALT_MID) + 1);
     } else if (data.action === 'descend') {
         // 下降：高度-1 (最低1)
         p.alt = Math.max(ALT_LOW, (p.alt || ALT_MID) - 1);
     } else if (data.action === 'setAlt') {
-        // 直接設定高度 1/2/3
+        // 直接設定高度 1/2/3/4
         let val = parseInt(data.val);
         if (val >= 1 && val <= 4) p.alt = val;
     } else if (data.action === 'fire') {
