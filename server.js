@@ -236,6 +236,68 @@ function getSafeRandomSpawn(walls) {
 }
 
 // ============================================================
+//  重生專用：在己方半場挑選遠離敵人的安全出生點
+// ============================================================
+const RESPAWN_MIN_ENEMY_DIST = 220;
+const RESPAWN_MIN_ALLY_DIST  = 60;
+
+function getSafeRespawnPoint(team, players, walls) {
+    const xMin = team === 'red' ? 40  : Math.floor(CANVAS_W * 0.55);
+    const xMax = team === 'red' ? Math.floor(CANVAS_W * 0.45) : CANVAS_W - 40;
+
+    let best = null;
+    let bestScore = -Infinity;
+
+    // 第一輪：硬性要求距敵 >= RESPAWN_MIN_ENEMY_DIST
+    for (let attempt = 0; attempt < 80; attempt++) {
+        const rx = xMin + Math.random() * (xMax - xMin);
+        const ry = 40 + Math.random() * (CANVAS_H - 80);
+        if (checkCol(walls, rx, ry, 20, ALT_MID)) continue;
+
+        let minEnemyDist = Infinity;
+        let minAllyDist  = Infinity;
+        for (const pid in players) {
+            const p = players[pid];
+            if (p.hp <= 0) continue;
+            const d = Math.hypot(p.x - rx, p.y - ry);
+            if (p.team !== team) { if (d < minEnemyDist) minEnemyDist = d; }
+            else                  { if (d < minAllyDist)  minAllyDist  = d; }
+        }
+        if (minEnemyDist < RESPAWN_MIN_ENEMY_DIST) continue;
+
+        const score = minEnemyDist - Math.max(0, RESPAWN_MIN_ALLY_DIST - minAllyDist) * 2;
+        if (score > bestScore) { bestScore = score; best = { x: rx, y: ry }; }
+    }
+
+    // 第二輪（放寬）：取距敵最遠的點
+    if (!best) {
+        bestScore = -Infinity;
+        for (let attempt = 0; attempt < 40; attempt++) {
+            const rx = xMin + Math.random() * (xMax - xMin);
+            const ry = 40 + Math.random() * (CANVAS_H - 80);
+            if (checkCol(walls, rx, ry, 20, ALT_MID)) continue;
+            let minEnemyDist = Infinity;
+            for (const pid in players) {
+                const p = players[pid];
+                if (p.hp <= 0 || p.team === team) continue;
+                const d = Math.hypot(p.x - rx, p.y - ry);
+                if (d < minEnemyDist) minEnemyDist = d;
+            }
+            if (minEnemyDist > bestScore) { bestScore = minEnemyDist; best = { x: rx, y: ry }; }
+        }
+    }
+
+    // 最後備案：固定出生點
+    if (!best) {
+        const fb = getSpawn(team, 2);
+        best = { x: fb.x, y: fb.y };
+    }
+
+    const angle = team === 'red' ? 0 : 180;
+    return { x: best.x, y: best.y, a: angle, alt: ALT_HIGH }; // 重生時先在高空，提供緩衝
+}
+
+// ============================================================
 //  指令處理
 // ============================================================
 function applyCmd(room, data) {
@@ -246,6 +308,10 @@ function applyCmd(room, data) {
         p.targetMove = (p.targetMove || 0) + data.val;
     } else if (data.action === 'turn') {
         p.targetAngle = (p.targetAngle !== undefined ? p.targetAngle : p.angle) + data.val;
+    } else if (data.action === 'setAngle') {
+        // 直接設定絕對朝向角度，一次到位不逐格轉
+        p.angle = data.val;
+        p.targetAngle = undefined;
     } else if (data.action === 'climb') {
         // 爬升：高度+1 (最高4)
         p.alt = Math.min(ALT_ULTRA, (p.alt || ALT_MID) + 1);
@@ -428,6 +494,8 @@ function tickRoom(roomId) {
         let p = room.players[id];
         if (p.hp <= 0) continue;
         if (p.cooldown > 0) p.cooldown--;
+        // 無敵計時遞減
+        if (p.invincible && p.invincible > 0) p.invincible--;
         if (p.isBot) continue;
 
         // 前進/後退
@@ -460,7 +528,7 @@ function tickRoom(roomId) {
     }
 
     if (!room.active) {
-        io.to(roomId).emit('state', buildState(room));
+        // 遊戲未開始或已結束，不繼續廣播（避免蓋掉前端勝負畫面）
         return;
     }
 
@@ -482,6 +550,8 @@ function tickRoom(roomId) {
             for (const pid in room.players) {
                 const p = room.players[pid];
                 if (p.team === b.team || p.hp <= 0) continue;
+                // 無敵中不可被擊中
+                if (p.invincible && p.invincible > 0) continue;
                 // 🌟 高度差超過1則無法命中
                 if (!canBulletHit(b.alt || ALT_MID, p.alt || ALT_MID)) continue;
 
@@ -493,15 +563,21 @@ function tickRoom(roomId) {
                     destroy = true;
                     if (p.hp <= 0) {
                         const savedPid = pid;
+                        const savedTeam = p.team;
                         setTimeout(() => {
                             const r2 = rooms[roomId];
                             if (!r2 || !r2.players[savedPid]) return;
                             const pp = r2.players[savedPid];
-                            let s = pp.isBot ? getSafeRandomSpawn(r2.walls) : getSpawn(pp.team, pp.slot);
+                            // 真人與 Bot 都用「遠離敵人」的安全重生點
+                            let s = getSafeRespawnPoint(savedTeam, r2.players, r2.walls);
                             pp.x = s.x; pp.y = s.y; pp.angle = s.a;
-                            pp.alt = s.alt || ALT_MID;
+                            pp.alt = s.alt || ALT_HIGH; // 重生時高空，飛彈打不到
                             pp.hp = 100;
+                            pp.cooldown = 0;
+                            pp.targetMove = 0;
                             if (pp.isBot) pp.targetAngle = s.a;
+                            // 無敵時間：60 tick = 3 秒
+                            pp.invincible = 60;
                         }, RESPAWN_MS);
                     }
                     break;
@@ -628,14 +704,16 @@ io.on('connection', (socket) => {
         if (!player || player.hp <= 0) return;
 
         const now = Date.now();
-        if (now - (player.lastCmdTime || 0) < 10) return;
-        player.lastCmdTime = now;
+        const lastKey = 'lastCmd_' + data.action;
+        if (now - (player[lastKey] || 0) < 10) return;
+        player[lastKey] = now;
 
         let val = Number(data.val);
         if (isNaN(val)) val = 0;
-        if (data.action === 'move')  val = Math.max(-1000, Math.min(1000, val));
-        if (data.action === 'turn')  val = Math.max(-360,  Math.min(360,  val));
-        if (data.action === 'setAlt') val = Math.max(1, Math.min(4, Math.round(val)));
+        if (data.action === 'move')     val = Math.max(-1000, Math.min(1000, val));
+        if (data.action === 'turn')     val = Math.max(-360,  Math.min(360,  val));
+        if (data.action === 'setAngle') val = ((val % 360) + 360) % 360; // 正規化到 0~360
+        if (data.action === 'setAlt')   val = Math.max(1, Math.min(4, Math.round(val)));
 
         data.id  = playerId;
         data.val = val;
