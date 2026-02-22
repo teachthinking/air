@@ -31,37 +31,40 @@ const RESPAWN_MS = 3000;
 const TICK_MS = 50;
 
 // ✈️ 高度系統常數
-const ALT_LOW  = 1;   // 低空：受地面障礙物影響，速度較慢
-const ALT_MID  = 2;   // 中空：正常速度，可飛越低矮障礙物
-const ALT_HIGH = 3;   // 高空：速度最快，但是只有高空對高空才能命中
+const ALT_LOW   = 1;   // 低空：受地面障礙物影響，速度較慢
+const ALT_MID   = 2;   // 中空：正常速度，可飛越低矮障礙物
+const ALT_HIGH  = 3;   // 高空：速度快，可飛越高塔，只有高空對高空才能命中
+const ALT_ULTRA = 4;   // 超高空：速度最快，可飛越高塔，但無法飛越高山
 
 // 障礙物有高度屬性
-// altitude: 1 = 低建築 (只擋低空)
-// altitude: 2 = 中建築 (擋低空+中空)
-// altitude: 3 = 高建築 / 山脈 (擋所有高度)
+// altitude: 1 = 樹木   (只擋低空 alt=1)
+// altitude: 2 = 高樓   (擋低空+中空 alt<=2)
+// altitude: 3 = 高塔   (擋低空+中空+高空 alt<=3，超高空 alt=4 可越過)
+// altitude: 4 = 高山   (擋所有高度，連超高空都不行)
 // 預設地圖裡的 emoji 對應高度:
-//   🌲 = altitude 1  (低樹叢)
-//   🏢 = altitude 2  (中層建築)
-//   🗼 = altitude 3  (高塔/山)
-//   🪨 = altitude 3  (岩石山)
+//   🌲 = altitude 1  (樹木)
+//   🏢 = altitude 2  (高樓)
+//   🗼 = altitude 3  (高塔，超高空可越過)
+//   🪨 = altitude 4  (高山，無法飛越)
 
 // ============================================================
 //  高度相關速度與命中規則
 // ============================================================
 function getAltSpeed(alt) {
-    if (alt === ALT_LOW)  return 2.5;
-    if (alt === ALT_MID)  return 3.5;
-    if (alt === ALT_HIGH) return 4.5;
+    if (alt === ALT_LOW)   return 2.5;
+    if (alt === ALT_MID)   return 3.5;
+    if (alt === ALT_HIGH)  return 4.5;
+    if (alt === ALT_ULTRA) return 5.5;
     return 3.5;
 }
 
 function canBulletHit(shooterAlt, targetAlt) {
-    // 相差超過1個高度階層就無法命中
-    return Math.abs(shooterAlt - targetAlt) <= 1;
+    // 只有完全相同高度才能命中
+    return shooterAlt === targetAlt;
 }
 
 function obstacleBlocksAlt(obstacleAlt, heliAlt) {
-    // 建築物高度 >= 直升機高度 才會擋住
+    // 障礙物高度 >= 直升機高度 才會擋住
     return (obstacleAlt || 1) >= heliAlt;
 }
 
@@ -114,10 +117,10 @@ let PRESET_MAPS = {
         { x: 520, y: 240, w: 40, h: 40, emoji: "🗼", altitude: 3 },
         { x: 240, y: 200, w: 40, h: 40, emoji: "🗼", altitude: 3 },
         { x: 240, y: 240, w: 40, h: 40, emoji: "🗼", altitude: 3 },
-        { x: 360, y: 280, w: 40, h: 40, emoji: "🪨", altitude: 3 },
-        { x: 400, y: 280, w: 40, h: 40, emoji: "🪨", altitude: 3 },
-        { x: 400, y: 320, w: 40, h: 40, emoji: "🪨", altitude: 3 },
-        { x: 360, y: 320, w: 40, h: 40, emoji: "🪨", altitude: 3 },
+        { x: 360, y: 280, w: 40, h: 40, emoji: "🪨", altitude: 4 },
+        { x: 400, y: 280, w: 40, h: 40, emoji: "🪨", altitude: 4 },
+        { x: 400, y: 320, w: 40, h: 40, emoji: "🪨", altitude: 4 },
+        { x: 360, y: 320, w: 40, h: 40, emoji: "🪨", altitude: 4 },
         { x: 120, y: 200, w: 40, h: 40, emoji: "🏢", altitude: 2 },
         { x: 120, y: 240, w: 40, h: 40, emoji: "🏢", altitude: 2 },
         { x: 120, y: 280, w: 40, h: 40, emoji: "🏢", altitude: 2 },
@@ -151,7 +154,8 @@ async function loadExternalMaps() {
             for (const mapId in externalMaps) {
                 externalMaps[mapId].forEach(tile => {
                     if (!tile.altitude) {
-                        tile.altitude = (tile.emoji === '🪨' || tile.emoji === '🗼') ? 3
+                        tile.altitude = (tile.emoji === '🪨') ? 4
+                                      : (tile.emoji === '🗼') ? 3
                                       : (tile.emoji === '🏢') ? 2 : 1;
                     }
                 });
@@ -244,14 +248,14 @@ function applyCmd(room, data) {
         p.targetAngle = (p.targetAngle !== undefined ? p.targetAngle : p.angle) + data.val;
     } else if (data.action === 'climb') {
         // 爬升：高度+1 (最高3)
-        p.alt = Math.min(ALT_HIGH, (p.alt || ALT_MID) + 1);
+        p.alt = Math.min(ALT_ULTRA, (p.alt || ALT_MID) + 1);
     } else if (data.action === 'descend') {
         // 下降：高度-1 (最低1)
         p.alt = Math.max(ALT_LOW, (p.alt || ALT_MID) - 1);
     } else if (data.action === 'setAlt') {
         // 直接設定高度 1/2/3
         let val = parseInt(data.val);
-        if (val >= 1 && val <= 3) p.alt = val;
+        if (val >= 1 && val <= 4) p.alt = val;
     } else if (data.action === 'fire') {
         if (!room.active) return;
         if (p.cooldown > 0) return;
@@ -558,7 +562,8 @@ io.on('connection', (socket) => {
         // 補上高度屬性
         (data.walls || []).forEach(tile => {
             if (!tile.altitude) {
-                tile.altitude = (tile.emoji === '🪨' || tile.emoji === '🗼') ? 3
+                tile.altitude = (tile.emoji === '🪨') ? 4
+                              : (tile.emoji === '🗼') ? 3
                               : (tile.emoji === '🏢') ? 2 : 1;
             }
         });
@@ -630,7 +635,7 @@ io.on('connection', (socket) => {
         if (isNaN(val)) val = 0;
         if (data.action === 'move')  val = Math.max(-1000, Math.min(1000, val));
         if (data.action === 'turn')  val = Math.max(-360,  Math.min(360,  val));
-        if (data.action === 'setAlt') val = Math.max(1, Math.min(3, Math.round(val)));
+        if (data.action === 'setAlt') val = Math.max(1, Math.min(4, Math.round(val)));
 
         data.id  = playerId;
         data.val = val;
