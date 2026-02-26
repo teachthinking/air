@@ -1,5 +1,5 @@
 // server.js - 直升機空戰伺服器【Server 端物理計算版】
-// 新增：高度系統 (3階段)、飛彈系統、制空權機制
+// 新增：高度系統 (4階段)、飛彈系統、制空權機制
 // 所有物理運算在此執行，老師端只做地圖編輯與控制，學生端只做渲染
 //    Powered by Google Blockly (Apache 2.0) | Educational platform and extensions © 2026 Justin Chang
 //    本平台使用 Google Blockly（Apache License 2.0）開發｜教學平台與延伸功能 保留所有權利｜ © 2026 張世杰 (teachthinking@gmail.com)
@@ -140,33 +140,63 @@ let PRESET_MAPS = {
     ]
 };
 
+const https = require('https');
+
 // ============================================================
-//  從 GitHub 載入外部地圖
+//  從 GitHub 載入外部地圖 (終極無敵防呆版)
 // ============================================================
-async function loadExternalMaps() {
-    try {
-        const url = 'https://raw.githubusercontent.com/teachthinking/tank_maps/refs/heads/main/airmaps.json?t=' + Date.now();
-        console.log('⏳ 正在從 GitHub 載入外部地圖...');
-        const response = await fetch(url);
-        if (response.ok) {
-            const externalMaps = await response.json();
-            // 為外部地圖補上預設高度
-            for (const mapId in externalMaps) {
-                externalMaps[mapId].forEach(tile => {
-                    if (!tile.altitude) {
-                        tile.altitude = (tile.emoji === '🪨') ? 4
-                                      : (tile.emoji === '🗼') ? 3
-                                      : (tile.emoji === '🏢') ? 2 : 1;
-                    }
-                });
+function loadExternalMaps() {
+    const url = 'https://raw.githubusercontent.com/teachthinking/tank_maps/refs/heads/main/airmaps.json?t=' + Date.now();
+    console.log('⏳ 正在從 GitHub 載入外部地圖...');
+    
+    https.get(url, (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+            try {
+                const externalMaps = JSON.parse(data);
+                
+                // 🌟 遍歷外部地圖，加入最高級別的防呆判斷
+                for (const mapId in externalMaps) {
+                    let mapData = externalMaps[mapId];
+                    
+                    // 🛡️ 終極防呆 1：如果這筆地圖資料是 null 或 undefined，直接跳過！
+                    if (!mapData) continue;
+                    
+                    // 🛡️ 終極防呆 2：如果是陣列就直接用，如果是物件就提取裡面的 .walls 屬性
+                    let tilesArray = Array.isArray(mapData) ? mapData : (mapData.walls || []);
+                    
+                    // 🛡️ 終極防呆 3：確保提取出來的確實是陣列
+                    if (!Array.isArray(tilesArray)) tilesArray = [];
+                    
+                    // 為外部地圖補上預設高度
+                    tilesArray.forEach(tile => {
+                        if (!tile.altitude) {
+                            tile.altitude = (tile.emoji === '🪨') ? 4
+                                          : (tile.emoji === '🗼') ? 3
+                                          : (tile.emoji === '🏢') ? 2 : 1;
+                        }
+                    });
+                    
+                    // 將整理好的陣列存回 externalMaps 中
+                    externalMaps[mapId] = tilesArray;
+                }
+                
+                // 將外部地圖合併進伺服器的預設地圖中
+                PRESET_MAPS = { ...PRESET_MAPS, ...externalMaps };
+                
+                console.log(`✅ 成功載入外部地圖！目前共有 ${Object.keys(PRESET_MAPS).length} 張地圖。`);
+                console.log(`🔍 目前伺服器認識:`, Object.keys(PRESET_MAPS));
+            } catch (e) {
+                console.error('❌ 解析外部地圖 JSON 失敗:', e.message);
             }
-            PRESET_MAPS = { ...PRESET_MAPS, ...externalMaps };
-            console.log(`✅ 成功載入外部地圖！目前共有 ${Object.keys(PRESET_MAPS).length} 張地圖。`);
-        }
-    } catch (error) {
-        console.error('🚨 載入外部地圖時發生網路錯誤:', error.message);
-    }
+        });
+    }).on('error', (err) => {
+        console.error('🚨 載入外部地圖時發生網路錯誤:', err.message);
+    });
 }
+
+// 啟動伺服器時立刻執行抓圖
 loadExternalMaps();
 
 // ============================================================
@@ -681,6 +711,8 @@ io.on('connection', (socket) => {
 
     socket.on('playerJoin', (data) => {
         const room = getRoom(data.roomId);
+        console.log(`🔍 玩家請求地圖 ID: [${data.mapId}]`);
+console.log(`🔍 目前伺服器認識的地圖有:`, Object.keys(PRESET_MAPS));
         const s = getSpawn(data.team, data.slot);
         room.players[data.id] = {
             id: data.id, name: data.name,
@@ -778,6 +810,8 @@ io.on('connection', (socket) => {
     // 學生對戰
     socket.on('joinStudentPvP', (data) => {
         const room = getRoom(data.roomId);
+        console.log(`🔍 玩家請求地圖 ID: [${data.mapId}]`);
+console.log(`🔍 目前伺服器認識的地圖有:`, Object.keys(PRESET_MAPS));
         if (!room.active) {
             room.active = true;
             room.players = {};
@@ -807,6 +841,8 @@ io.on('connection', (socket) => {
     // 合作模式 (修正版)
     socket.on('joinCoop', (data) => {
         const room = getRoom(data.roomId);
+        console.log(`🔍 玩家請求地圖 ID: [${data.mapId}]`);
+console.log(`🔍 目前伺服器認識的地圖有:`, Object.keys(PRESET_MAPS));
         
         // 如果房間未啟用，進行初始化
         if (!room.active) {
