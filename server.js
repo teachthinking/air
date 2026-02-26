@@ -1,8 +1,8 @@
 // server.js - 直升機空戰伺服器【Server 端物理計算版】
-// 新增：高度系統 (4階段)、飛彈系統、制空權機制
+// 新增：高度系統 (3階段)、飛彈系統、制空權機制
 // 所有物理運算在此執行，老師端只做地圖編輯與控制，學生端只做渲染
-// Powered by Google Blockly (Apache 2.0) | Educational platform and extensions © 2026 Justin Chang
-// 本平台使用 Google Blockly（Apache License 2.0）開發｜教學平台與延伸功能 保留所有權利｜ © 2026 張世杰 (teachthinking@gmail.com)
+//    Powered by Google Blockly (Apache 2.0) | Educational platform and extensions © 2026 Justin Chang
+//    本平台使用 Google Blockly（Apache License 2.0）開發｜教學平台與延伸功能 保留所有權利｜ © 2026 張世杰 (teachthinking@gmail.com)
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);
