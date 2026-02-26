@@ -31,9 +31,9 @@ const RESPAWN_MS = 3000;
 const TICK_MS = 50;
 
 // ✈️ 高度系統常數
-const ALT_LOW   = 1;   // 低空：受地面障礙物影響，速度較慢
-const ALT_MID   = 2;   // 中空：正常速度，可飛越低矮障礙物
-const ALT_HIGH  = 3;   // 高空：速度快，可飛越高塔，只有高空對高空才能命中
+const ALT_LOW = 1;   // 低空：受地面障礙物影響，速度較慢
+const ALT_MID = 2;   // 中空：正常速度，可飛越低矮障礙物
+const ALT_HIGH = 3;   // 高空：速度快，可飛越高塔，只有高空對高空才能命中
 const ALT_ULTRA = 4;   // 超高空：速度最快，可飛越高塔，但無法飛越高山
 
 // 障礙物有高度屬性
@@ -51,9 +51,9 @@ const ALT_ULTRA = 4;   // 超高空：速度最快，可飛越高塔，但無法
 //  高度相關速度與命中規則
 // ============================================================
 function getAltSpeed(alt) {
-    if (alt === ALT_LOW)   return 2.5;
-    if (alt === ALT_MID)   return 3.5;
-    if (alt === ALT_HIGH)  return 4.5;
+    if (alt === ALT_LOW) return 2.5;
+    if (alt === ALT_MID) return 3.5;
+    if (alt === ALT_HIGH) return 4.5;
     if (alt === ALT_ULTRA) return 5.5;
     return 3.5;
 }
@@ -79,12 +79,12 @@ let PRESET_MAPS = {
         { x: 380, y: 300, w: 40, h: 40, emoji: "🗼", altitude: 3 },
         { x: 420, y: 300, w: 40, h: 40, emoji: "🗼", altitude: 3 },
         // 低樹叢
-        { x: 160, y: 80,  w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 200, y: 80,  w: 40, h: 40, emoji: "🌲", altitude: 1 },
+        { x: 160, y: 80, w: 40, h: 40, emoji: "🌲", altitude: 1 },
+        { x: 200, y: 80, w: 40, h: 40, emoji: "🌲", altitude: 1 },
         { x: 160, y: 120, w: 40, h: 40, emoji: "🌲", altitude: 1 },
         { x: 200, y: 120, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 560, y: 80,  w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 600, y: 80,  w: 40, h: 40, emoji: "🌲", altitude: 1 },
+        { x: 560, y: 80, w: 40, h: 40, emoji: "🌲", altitude: 1 },
+        { x: 600, y: 80, w: 40, h: 40, emoji: "🌲", altitude: 1 },
         { x: 560, y: 120, w: 40, h: 40, emoji: "🌲", altitude: 1 },
         { x: 600, y: 120, w: 40, h: 40, emoji: "🌲", altitude: 1 },
         { x: 160, y: 480, w: 40, h: 40, emoji: "🌲", altitude: 1 },
@@ -148,43 +148,43 @@ const https = require('https');
 function loadExternalMaps() {
     const url = 'https://raw.githubusercontent.com/teachthinking/tank_maps/refs/heads/main/airmaps.json?t=' + Date.now();
     console.log('⏳ 正在從 GitHub 載入外部地圖...');
-    
+
     https.get(url, (res) => {
         let data = '';
         res.on('data', (chunk) => { data += chunk; });
         res.on('end', () => {
             try {
                 const externalMaps = JSON.parse(data);
-                
+
                 // 🌟 遍歷外部地圖，加入最高級別的防呆判斷
                 for (const mapId in externalMaps) {
                     let mapData = externalMaps[mapId];
-                    
+
                     // 🛡️ 終極防呆 1：如果這筆地圖資料是 null 或 undefined，直接跳過！
                     if (!mapData) continue;
-                    
+
                     // 🛡️ 終極防呆 2：如果是陣列就直接用，如果是物件就提取裡面的 .walls 屬性
                     let tilesArray = Array.isArray(mapData) ? mapData : (mapData.walls || []);
-                    
+
                     // 🛡️ 終極防呆 3：確保提取出來的確實是陣列
                     if (!Array.isArray(tilesArray)) tilesArray = [];
-                    
+
                     // 為外部地圖補上預設高度
                     tilesArray.forEach(tile => {
                         if (!tile.altitude) {
                             tile.altitude = (tile.emoji === '🪨') ? 4
-                                          : (tile.emoji === '🗼') ? 3
-                                          : (tile.emoji === '🏢') ? 2 : 1;
+                                : (tile.emoji === '🗼') ? 3
+                                    : (tile.emoji === '🏢') ? 2 : 1;
                         }
                     });
-                    
+
                     // 將整理好的陣列存回 externalMaps 中
                     externalMaps[mapId] = tilesArray;
                 }
-                
+
                 // 將外部地圖合併進伺服器的預設地圖中
                 PRESET_MAPS = { ...PRESET_MAPS, ...externalMaps };
-                
+
                 console.log(`✅ 成功載入外部地圖！目前共有 ${Object.keys(PRESET_MAPS).length} 張地圖。`);
                 console.log(`🔍 目前伺服器認識:`, Object.keys(PRESET_MAPS));
             } catch (e) {
@@ -245,7 +245,7 @@ function getSpawn(team, slot) {
     else if (slot == 4) y = 200;
     else if (slot == 5) y = 400;
     return team === 'red'
-        ? { x: 50,  y, a: 0,   alt: ALT_MID }
+        ? { x: 50, y, a: 0, alt: ALT_MID }
         : { x: 750, y, a: 180, alt: ALT_MID };
 }
 
@@ -269,10 +269,10 @@ function getSafeRandomSpawn(walls) {
 //  重生專用：在己方半場挑選遠離敵人的安全出生點
 // ============================================================
 const RESPAWN_MIN_ENEMY_DIST = 220;
-const RESPAWN_MIN_ALLY_DIST  = 60;
+const RESPAWN_MIN_ALLY_DIST = 60;
 
 function getSafeRespawnPoint(team, players, walls) {
-    const xMin = team === 'red' ? 40  : Math.floor(CANVAS_W * 0.55);
+    const xMin = team === 'red' ? 40 : Math.floor(CANVAS_W * 0.55);
     const xMax = team === 'red' ? Math.floor(CANVAS_W * 0.45) : CANVAS_W - 40;
 
     let best = null;
@@ -285,13 +285,13 @@ function getSafeRespawnPoint(team, players, walls) {
         if (checkCol(walls, rx, ry, 20, ALT_MID)) continue;
 
         let minEnemyDist = Infinity;
-        let minAllyDist  = Infinity;
+        let minAllyDist = Infinity;
         for (const pid in players) {
             const p = players[pid];
             if (p.hp <= 0) continue;
             const d = Math.hypot(p.x - rx, p.y - ry);
             if (p.team !== team) { if (d < minEnemyDist) minEnemyDist = d; }
-            else                  { if (d < minAllyDist)  minAllyDist  = d; }
+            else { if (d < minAllyDist) minAllyDist = d; }
         }
         if (minEnemyDist < RESPAWN_MIN_ENEMY_DIST) continue;
 
@@ -479,6 +479,7 @@ function updateBots(room) {
             }
 
             // 移動執行
+            // 移動執行
             if (bot.targetMove && Math.abs(bot.targetMove) > 0) {
                 let speed = getAltSpeed(bot.alt || ALT_MID);
                 let step = Math.sign(bot.targetMove) * Math.min(speed, Math.abs(bot.targetMove));
@@ -490,8 +491,20 @@ function updateBots(room) {
                 let hitWall = checkCol(room.walls, bot.x, bot.y, HELI_RADIUS, bot.alt || ALT_MID);
                 if (hitWall) {
                     bot.x = oldX; bot.y = oldY;
-                    bot.targetMove = bot.targetMove > 0 ? -40 : 40;
-                    bot.evadeTimer = 20;
+
+                    // 🌟 撞牆時嘗試爬升飛越，而不是原地反向
+                    if ((bot.alt || ALT_MID) < ALT_ULTRA) {
+                        bot.alt = (bot.alt || ALT_MID) + 1;
+                        bot.targetMove = 30;              // 爬升後繼續前進嘗試飛越
+                    } else {
+                        // 🌟 已最高空仍撞牆 → 旋轉一個隨機角度（45~135度）換方向
+                        bot.angle += 45 + Math.random() * 90;
+                        bot.targetMove = 40;              // 換方向後前進
+                    }
+
+                    // 重設 evadeTimer，避免瞄準系統立刻搶回角度
+                    bot.evadeTimer = 30;
+
                 } else {
                     bot.targetMove -= step;
                 }
@@ -669,8 +682,8 @@ io.on('connection', (socket) => {
         (data.walls || []).forEach(tile => {
             if (!tile.altitude) {
                 tile.altitude = (tile.emoji === '🪨') ? 4
-                              : (tile.emoji === '🗼') ? 3
-                              : (tile.emoji === '🏢') ? 2 : 1;
+                    : (tile.emoji === '🗼') ? 3
+                        : (tile.emoji === '🏢') ? 2 : 1;
             }
         });
         room.walls = data.walls;
@@ -712,7 +725,7 @@ io.on('connection', (socket) => {
     socket.on('playerJoin', (data) => {
         const room = getRoom(data.roomId);
         console.log(`🔍 玩家請求地圖 ID: [${data.mapId}]`);
-console.log(`🔍 目前伺服器認識的地圖有:`, Object.keys(PRESET_MAPS));
+        console.log(`🔍 目前伺服器認識的地圖有:`, Object.keys(PRESET_MAPS));
         const s = getSpawn(data.team, data.slot);
         room.players[data.id] = {
             id: data.id, name: data.name,
@@ -742,12 +755,12 @@ console.log(`🔍 目前伺服器認識的地圖有:`, Object.keys(PRESET_MAPS))
 
         let val = Number(data.val);
         if (isNaN(val)) val = 0;
-        if (data.action === 'move')     val = Math.max(-1000, Math.min(1000, val));
-        if (data.action === 'turn')     val = Math.max(-360,  Math.min(360,  val));
+        if (data.action === 'move') val = Math.max(-1000, Math.min(1000, val));
+        if (data.action === 'turn') val = Math.max(-360, Math.min(360, val));
         if (data.action === 'setAngle') val = ((val % 360) + 360) % 360; // 正規化到 0~360
-        if (data.action === 'setAlt')   val = Math.max(1, Math.min(4, Math.round(val)));
+        if (data.action === 'setAlt') val = Math.max(1, Math.min(4, Math.round(val)));
 
-        data.id  = playerId;
+        data.id = playerId;
         data.val = val;
         applyCmd(room, data);
     });
@@ -811,7 +824,7 @@ console.log(`🔍 目前伺服器認識的地圖有:`, Object.keys(PRESET_MAPS))
     socket.on('joinStudentPvP', (data) => {
         const room = getRoom(data.roomId);
         console.log(`🔍 玩家請求地圖 ID: [${data.mapId}]`);
-console.log(`🔍 目前伺服器認識的地圖有:`, Object.keys(PRESET_MAPS));
+        console.log(`🔍 目前伺服器認識的地圖有:`, Object.keys(PRESET_MAPS));
         if (!room.active) {
             room.active = true;
             room.players = {};
@@ -842,12 +855,12 @@ console.log(`🔍 目前伺服器認識的地圖有:`, Object.keys(PRESET_MAPS))
     socket.on('joinCoop', (data) => {
         const room = getRoom(data.roomId);
         console.log(`🔍 玩家請求地圖 ID: [${data.mapId}]`);
-console.log(`🔍 目前伺服器認識的地圖有:`, Object.keys(PRESET_MAPS));
-        
+        console.log(`🔍 目前伺服器認識的地圖有:`, Object.keys(PRESET_MAPS));
+
         // 如果房間未啟用，進行初始化
         if (!room.active) {
             room.active = true;
-           // 保留已經在房間裡的真人隊友 (防清除 Bug)
+            // 保留已經在房間裡的真人隊友 (防清除 Bug)
             for (const pid in room.players) {
                 if (room.players[pid].isBot) {
                     delete room.players[pid];
@@ -855,7 +868,7 @@ console.log(`🔍 目前伺服器認識的地圖有:`, Object.keys(PRESET_MAPS))
                     room.players[pid].hp = 100;
                 }
             }
-            
+
             // 🌟 核心修正：如果老師沒設定地圖，才讀取預設的 mapId
             if (!room.walls || room.walls.length === 0) {
                 room.walls = JSON.parse(JSON.stringify(PRESET_MAPS[data.mapId] || []));
@@ -863,7 +876,7 @@ console.log(`🔍 目前伺服器認識的地圖有:`, Object.keys(PRESET_MAPS))
             room.timeLeft = 300;
             room.scores = { red: 0, blue: 0 };
             room.bullets = [];
-            
+
             // 重新生成新的 AI 敵人
             let botCount = data.botCount || 5;
             for (let i = 1; i <= botCount; i++) {
@@ -888,7 +901,7 @@ console.log(`🔍 目前伺服器認識的地圖有:`, Object.keys(PRESET_MAPS))
             x: s.x, y: s.y, angle: s.a, targetAngle: s.a,
             alt: ALT_MID, hp: 100, cooldown: 0, isBot: false
         };
-        
+
         socket.playerId = data.id;
         socket.roomId = data.roomId;
         socket.join(data.roomId);
