@@ -749,7 +749,11 @@ io.on('connection', (socket) => {
         if (!player || player.hp <= 0) return;
 
         const now = Date.now();
-        const lastKey = 'lastCmd_' + data.action;
+        // turn 用 action+方向 當 key，讓右轉與左轉互不干擾
+        // 其他指令沿用 action 當 key
+        const lastKey = data.action === 'turn'
+            ? 'lastCmd_turn_' + (Number(data.val) >= 0 ? 'r' : 'l')
+            : 'lastCmd_' + data.action;
         if (now - (player[lastKey] || 0) < 10) return;
         player[lastKey] = now;
 
@@ -757,7 +761,7 @@ io.on('connection', (socket) => {
         if (isNaN(val)) val = 0;
         if (data.action === 'move') val = Math.max(-1000, Math.min(1000, val));
         if (data.action === 'turn') val = Math.max(-360, Math.min(360, val));
-        if (data.action === 'setAngle') val = ((val % 360) + 360) % 360; // 正規化到 0~360
+        if (data.action === 'setAngle') val = ((val % 360) + 360) % 360;
         if (data.action === 'setAlt') val = Math.max(1, Math.min(4, Math.round(val)));
 
         data.id = playerId;
