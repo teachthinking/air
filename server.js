@@ -336,6 +336,9 @@ function applyCmd(room, data) {
 
     if (data.action === 'move') {
         p.targetMove = (p.targetMove || 0) + data.val;
+    } else if (data.action === 'setMove') {
+        // 直接覆蓋 targetMove（不累加），讓前端每次迴圈只走固定距離不會疊加
+        p.targetMove = Math.max(-1000, Math.min(1000, data.val));
     } else if (data.action === 'turn') {
         p.targetAngle = (p.targetAngle !== undefined ? p.targetAngle : p.angle) + data.val;
     } else if (data.action === 'setAngle') {
@@ -760,6 +763,7 @@ io.on('connection', (socket) => {
         let val = Number(data.val);
         if (isNaN(val)) val = 0;
         if (data.action === 'move') val = Math.max(-1000, Math.min(1000, val));
+        if (data.action === 'setMove') val = Math.max(-1000, Math.min(1000, val));
         if (data.action === 'turn') val = Math.max(-360, Math.min(360, val));
         if (data.action === 'setAngle') val = ((val % 360) + 360) % 360;
         if (data.action === 'setAlt') val = Math.max(1, Math.min(4, Math.round(val)));
