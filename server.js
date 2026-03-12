@@ -676,15 +676,20 @@ function applyCmd(room, data) {
         p.angle = data.val;
         p.targetAngle = undefined;
     } else if (data.action === 'climb') {
-        // 爬升：高度+1 (最高4)
+        // 爬升：高度+1 (最高4)；displayAlt 會在 tick 中緩動過渡，不直接跳變
         p.alt = Math.min(ALT_ULTRA, (p.alt || ALT_MID) + 1);
+        if (p.displayAlt === undefined) p.displayAlt = p.alt; // 初始化
     } else if (data.action === 'descend') {
         // 下降：高度-1 (最低1)
         p.alt = Math.max(ALT_LOW, (p.alt || ALT_MID) - 1);
+        if (p.displayAlt === undefined) p.displayAlt = p.alt; // 初始化
     } else if (data.action === 'setAlt') {
         // 直接設定高度 1/2/3/4
         let val = parseInt(data.val);
-        if (val >= 1 && val <= 4) p.alt = val;
+        if (val >= 1 && val <= 4) {
+            p.alt = val;
+            if (p.displayAlt === undefined) p.displayAlt = p.alt; // 初始化
+        }
     } else if (data.action === 'fire') {
         if (!room.active) return;
         if (p.cooldown > 0) return;
@@ -859,6 +864,22 @@ function updateBots(room) {
 // ============================================================
 //  物理迴圈
 // ============================================================
+function triggerRespawn(roomId, pid) {
+    setTimeout(() => {
+        const r = rooms[roomId];
+        if (!r || !r.players[pid]) return;
+        const pp = r.players[pid];
+        let s = getSafeRespawnPoint(pp.team, r.players, r.walls);
+        pp.x = s.x; pp.y = s.y; pp.angle = s.a;
+        pp.alt = s.alt || ALT_HIGH;
+        pp.hp = 100;
+        pp.cooldown = 0;
+        pp.targetMove = 0;
+        if (pp.isBot) pp.targetAngle = s.a;
+        pp.invincible = 60; // 3 秒無敵
+    }, RESPAWN_MS);
+}
+
 function tickRoom(roomId) {
     const room = rooms[roomId];
     if (!room) return;
@@ -872,22 +893,66 @@ function tickRoom(roomId) {
         if (p.cooldown > 0) p.cooldown--;
         // 無敵計時遞減
         if (p.invincible && p.invincible > 0) p.invincible--;
+
+        // 安全網：若玩家已在障礙物內，嘗試往8個方向推出（每次2px）
+        if (checkCol(room.walls, p.x, p.y, HELI_RADIUS, p.alt || ALT_MID)) {
+            const pushDirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+            for (const [pdx, pdy] of pushDirs) {
+                const nx = p.x + pdx * 2, ny = p.y + pdy * 2;
+                if (!checkCol(room.walls, nx, ny, HELI_RADIUS, p.alt || ALT_MID)) {
+                    p.x = nx; p.y = ny; break;
+                }
+            }
+        }
+
+        // 高度視覺緩動：所有玩家（含 Bot）都計算，displayAlt 只給前端渲染用
+        {
+            const ALT_LERP_SPEED = 0.15;
+            if (p.displayAlt === undefined) p.displayAlt = p.alt || ALT_MID;
+            const altTarget = p.alt || ALT_MID;
+            const altDelta = altTarget - p.displayAlt;
+            if (Math.abs(altDelta) < 0.01) {
+                p.displayAlt = altTarget;
+            } else {
+                p.displayAlt += altDelta * ALT_LERP_SPEED;
+            }
+        }
+
         if (p.isBot) continue;
 
-        // 前進/後退
+        // 前進/後退（逐軸滑動碰撞：避免卡進障礙物）
         if (p.targetMove && Math.abs(p.targetMove) > 0) {
             const speed = getAltSpeed(p.alt || ALT_MID);
             const dir = p.targetMove > 0 ? 1 : -1;
-            const step = Math.min(speed, Math.abs(p.targetMove));
+            const alt = p.alt || ALT_MID;
             const rad = p.angle * Math.PI / 180;
-            const dx = Math.cos(rad) * step * dir;
-            const dy = Math.sin(rad) * step * dir;
-            if (!checkCol(room.walls, p.x + dx, p.y + dy, HELI_RADIUS, p.alt || ALT_MID)) {
-                p.x += dx; p.y += dy;
-                p.targetMove -= step * dir;
-            } else {
-                p.targetMove = 0;
+            // 將移動量拆成多個小步，每步最多 1px，確保不會穿牆
+            let remaining = Math.min(speed, Math.abs(p.targetMove));
+            const stepSize = 1;
+            while (remaining > 0) {
+                const s = Math.min(stepSize, remaining) * dir;
+                const dx = Math.cos(rad) * s;
+                const dy = Math.sin(rad) * s;
+                // 嘗試整步移動
+                if (!checkCol(room.walls, p.x + dx, p.y + dy, HELI_RADIUS, alt)) {
+                    p.x += dx; p.y += dy;
+                } else {
+                    // 嘗試只滑 X 軸
+                    if (!checkCol(room.walls, p.x + dx, p.y, HELI_RADIUS, alt)) {
+                        p.x += dx;
+                    }
+                    // 嘗試只滑 Y 軸
+                    else if (!checkCol(room.walls, p.x, p.y + dy, HELI_RADIUS, alt)) {
+                        p.y += dy;
+                    }
+                    // 完全卡住，停止本次移動
+                    else {
+                        break;
+                    }
+                }
+                remaining -= stepSize;
             }
+            p.targetMove -= (Math.min(speed, Math.abs(p.targetMove))) * dir;
         }
 
         // 轉向
@@ -901,6 +966,7 @@ function tickRoom(roomId) {
                 p.targetAngle = undefined;
             }
         }
+
     }
 
     if (!room.active) {
@@ -910,6 +976,67 @@ function tickRoom(roomId) {
 
     room.timeLeft -= TICK_MS / 1000;
     if (room.timeLeft < 0) room.timeLeft = 0;
+
+    // ══════════════════════════════════════════════════
+    //  直升機互撞偵測（同高度才會碰撞）
+    //  COLLISION_DAMAGE: 每次碰撞扣血量（0 = 純彈開不扣血）
+    //  COLLISION_BOUNCE: true = 碰後彈開, false = 純擋住
+    // ══════════════════════════════════════════════════
+    const COLLISION_DAMAGE = 10;   // ← 可調整：0~50
+    const COLLISION_BOUNCE = true; // ← 可調整：true/false
+    const COLLISION_RADIUS = HELI_RADIUS * 2; // 兩機中心距小於此值視為碰撞
+
+    const pids = Object.keys(room.players);
+    for (let i = 0; i < pids.length; i++) {
+        for (let j = i + 1; j < pids.length; j++) {
+            const a = room.players[pids[i]];
+            const b = room.players[pids[j]];
+            if (!a || !b) continue;
+            if (a.hp <= 0 || b.hp <= 0) continue;
+            if (a.team === b.team) continue; // 同隊不碰撞
+            // 高度差 > 1 視為不同空層，不碰撞
+            if (Math.abs((a.alt || ALT_MID) - (b.alt || ALT_MID)) > 1) continue;
+            // 無敵中不受碰撞傷害
+            const aInvinc = a.invincible && a.invincible > 0;
+            const bInvinc = b.invincible && b.invincible > 0;
+
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist < COLLISION_RADIUS && dist > 0) {
+                // 彈開：沿碰撞軸推開到剛好不重疊，並確認不會推進牆壁
+                if (COLLISION_BOUNCE) {
+                    const nx = dx / dist, ny = dy / dist;
+                    const overlap = COLLISION_RADIUS - dist;
+                    const aAlt = a.alt || ALT_MID, bAlt = b.alt || ALT_MID;
+                    const axNew = a.x - nx * overlap / 2;
+                    const ayNew = a.y - ny * overlap / 2;
+                    const bxNew = b.x + nx * overlap / 2;
+                    const byNew = b.y + ny * overlap / 2;
+                    // 只有推開後不進牆才套用，否則保持原位
+                    if (!checkCol(room.walls, axNew, ayNew, HELI_RADIUS, aAlt)) {
+                        a.x = axNew; a.y = ayNew;
+                    }
+                    if (!checkCol(room.walls, bxNew, byNew, HELI_RADIUS, bAlt)) {
+                        b.x = bxNew; b.y = byNew;
+                    }
+                    // 清除移動動量，避免持續推擠
+                    a.targetMove = 0;
+                    b.targetMove = 0;
+                }
+                // 扣血（無敵中免疫），致死則觸發重生
+                if (COLLISION_DAMAGE > 0) {
+                    if (!aInvinc) {
+                        a.hp = Math.max(0, a.hp - COLLISION_DAMAGE);
+                        if (a.hp <= 0) triggerRespawn(roomId, pids[i]);
+                    }
+                    if (!bInvinc) {
+                        b.hp = Math.max(0, b.hp - COLLISION_DAMAGE);
+                        if (b.hp <= 0) triggerRespawn(roomId, pids[j]);
+                    }
+                }
+            }
+        }
+    }
 
     // 飛彈更新
     for (let i = room.bullets.length - 1; i >= 0; i--) {
@@ -937,25 +1064,7 @@ function tickRoom(roomId) {
                     else room.scores.blue++;
                     p.hp -= 20;
                     destroy = true;
-                    if (p.hp <= 0) {
-                        const savedPid = pid;
-                        const savedTeam = p.team;
-                        setTimeout(() => {
-                            const r2 = rooms[roomId];
-                            if (!r2 || !r2.players[savedPid]) return;
-                            const pp = r2.players[savedPid];
-                            // 真人與 Bot 都用「遠離敵人」的安全重生點
-                            let s = getSafeRespawnPoint(savedTeam, r2.players, r2.walls);
-                            pp.x = s.x; pp.y = s.y; pp.angle = s.a;
-                            pp.alt = s.alt || ALT_HIGH; // 重生時高空，飛彈打不到
-                            pp.hp = 100;
-                            pp.cooldown = 0;
-                            pp.targetMove = 0;
-                            if (pp.isBot) pp.targetAngle = s.a;
-                            // 無敵時間：60 tick = 3 秒
-                            pp.invincible = 60;
-                        }, RESPAWN_MS);
-                    }
+                    if (p.hp <= 0) triggerRespawn(roomId, pid);
                     break;
                 }
             }
