@@ -74,36 +74,366 @@ function obstacleBlocksAlt(obstacleAlt, heliAlt) {
 let PRESET_MAPS = {
     'map1': [
         // 中央山丘 (高塔)
-        { x: 380, y: 260, w: 40, h: 40, emoji: "🗼", altitude: 3 },
-        { x: 420, y: 260, w: 40, h: 40, emoji: "🗼", altitude: 3 },
-        { x: 380, y: 300, w: 40, h: 40, emoji: "🗼", altitude: 3 },
-        { x: 420, y: 300, w: 40, h: 40, emoji: "🗼", altitude: 3 },
-        // 低樹叢
-        { x: 160, y: 80, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 200, y: 80, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 160, y: 120, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 200, y: 120, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 560, y: 80, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 600, y: 80, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 560, y: 120, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 600, y: 120, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 160, y: 480, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 200, y: 480, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 160, y: 440, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 200, y: 440, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 560, y: 480, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 600, y: 480, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 560, y: 440, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        { x: 600, y: 440, w: 40, h: 40, emoji: "🌲", altitude: 1 },
-        // 中層建築
-        { x: 320, y: 160, w: 40, h: 40, emoji: "🏢", altitude: 2 },
-        { x: 360, y: 160, w: 40, h: 40, emoji: "🏢", altitude: 2 },
-        { x: 440, y: 160, w: 40, h: 40, emoji: "🏢", altitude: 2 },
-        { x: 480, y: 160, w: 40, h: 40, emoji: "🏢", altitude: 2 },
-        { x: 320, y: 440, w: 40, h: 40, emoji: "🏢", altitude: 2 },
-        { x: 360, y: 440, w: 40, h: 40, emoji: "🏢", altitude: 2 },
-        { x: 440, y: 440, w: 40, h: 40, emoji: "🏢", altitude: 2 },
-        { x: 480, y: 440, w: 40, h: 40, emoji: "🏢", altitude: 2 },
+        {
+        "x": 360,
+        "y": 240,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏢",
+        "altitude": 2
+      },
+      {
+        "x": 400,
+        "y": 280,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏢",
+        "altitude": 3
+      },
+      {
+        "x": 400,
+        "y": 240,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏢",
+        "altitude": 4
+      },
+      {
+        "x": 360,
+        "y": 280,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏢",
+        "altitude": 1
+      },
+      {
+        "x": 440,
+        "y": 280,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏢",
+        "altitude": 2
+      },
+      {
+        "x": 440,
+        "y": 240,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 1
+      },
+      {
+        "x": 200,
+        "y": 400,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 1
+      },
+      {
+        "x": 240,
+        "y": 400,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 2
+      },
+      {
+        "x": 280,
+        "y": 400,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 3
+      },
+      {
+        "x": 280,
+        "y": 440,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 2
+      },
+      {
+        "x": 320,
+        "y": 400,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 1
+      },
+      {
+        "x": 320,
+        "y": 440,
+        "w": 40,
+        "h": 40,
+        "emoji": "⛩️",
+        "altitude": 1
+      },
+      {
+        "x": 360,
+        "y": 440,
+        "w": 40,
+        "h": 40,
+        "emoji": "⛩️",
+        "altitude": 2
+      },
+      {
+        "x": 280,
+        "y": 0,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏢",
+        "altitude": 3
+      },
+      {
+        "x": 320,
+        "y": 0,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏢",
+        "altitude": 3
+      },
+      {
+        "x": 360,
+        "y": 0,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏢",
+        "altitude": 3
+      },
+      {
+        "x": 400,
+        "y": 0,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏢",
+        "altitude": 3
+      },
+      {
+        "x": 440,
+        "y": 0,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏢",
+        "altitude": 3
+      },
+      {
+        "x": 480,
+        "y": 0,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏢",
+        "altitude": 3
+      },
+      {
+        "x": 520,
+        "y": 0,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏢",
+        "altitude": 4
+      },
+      {
+        "x": 240,
+        "y": 0,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏢",
+        "altitude": 4
+      },
+      {
+        "x": 440,
+        "y": 560,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏰",
+        "altitude": 4
+      },
+      {
+        "x": 480,
+        "y": 560,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏰",
+        "altitude": 4
+      },
+      {
+        "x": 520,
+        "y": 560,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏰",
+        "altitude": 3
+      },
+      {
+        "x": 560,
+        "y": 560,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏰",
+        "altitude": 3
+      },
+      {
+        "x": 400,
+        "y": 560,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏰",
+        "altitude": 3
+      },
+      {
+        "x": 360,
+        "y": 560,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏰",
+        "altitude": 3
+      },
+      {
+        "x": 600,
+        "y": 200,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏰",
+        "altitude": 3
+      },
+      {
+        "x": 600,
+        "y": 240,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏰",
+        "altitude": 4
+      },
+      {
+        "x": 600,
+        "y": 280,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏰",
+        "altitude": 2
+      },
+      {
+        "x": 600,
+        "y": 320,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏰",
+        "altitude": 1
+      },
+      {
+        "x": 200,
+        "y": 160,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏰",
+        "altitude": 1
+      },
+      {
+        "x": 200,
+        "y": 200,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏰",
+        "altitude": 2
+      },
+      {
+        "x": 200,
+        "y": 240,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏰",
+        "altitude": 2
+      },
+      {
+        "x": 200,
+        "y": 280,
+        "w": 40,
+        "h": 40,
+        "emoji": "🏰",
+        "altitude": 3
+      },
+      {
+        "x": 560,
+        "y": 0,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 2
+      },
+      {
+        "x": 560,
+        "y": 40,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 1
+      },
+      {
+        "x": 320,
+        "y": 560,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 1
+      },
+      {
+        "x": 280,
+        "y": 560,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 2
+      },
+      {
+        "x": 240,
+        "y": 560,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 3
+      },
+      {
+        "x": 200,
+        "y": 560,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 2
+      },
+      {
+        "x": 160,
+        "y": 560,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 2
+      },
+      {
+        "x": 600,
+        "y": 0,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 2
+      },
+      {
+        "x": 640,
+        "y": 0,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 3
+      },
+      {
+        "x": 600,
+        "y": 40,
+        "w": 40,
+        "h": 40,
+        "emoji": "🌲",
+        "altitude": 2
+      },
     ],
     'map2': [
         // 迷宮式高牆 (全部高塔)
